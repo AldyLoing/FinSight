@@ -58,6 +58,7 @@ export interface TransactionUpdate {
   currency?: string;
   description?: string;
   category?: string;
+  budget_id?: string;
   merchant?: string;
   notes?: string;
   occurred_at?: string;

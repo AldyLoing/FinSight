@@ -165,6 +165,7 @@ export default function TransactionsPage() {
       currency: formData.currency,
       description: formData.description,
       category: formData.category || null,
+      budget_id: formData.budget_id || null,
       notes: formData.notes,
       occurred_at: new Date(formData.date).toISOString(),
     };

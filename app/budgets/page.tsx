@@ -315,7 +315,7 @@ export default function BudgetsPage() {
                   {isOverBudget && (
                     <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                       <p className="text-sm text-red-800 font-medium">
-                        ⚠️ Over budget by ${(spent - budget.amount).toFixed(2)}
+                        ⚠️ Over budget by {formatCurrency(spent - budget.total_amount, budgetCurrency)}
                       </p>
                     </div>
                   )}

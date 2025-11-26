@@ -91,18 +91,24 @@ export async function POST(req: NextRequest) {
     if (error) throw error;
 
     // Update account balance
-    const { data: account } = await supabase
+    const { data: account, error: accountError } = await supabase
       .from('accounts')
       .select('balance')
       .eq('id', body.account_id)
       .single();
 
-    if (account) {
+    if (accountError) {
+      console.error('Error fetching account:', accountError);
+    } else if (account) {
       const newBalance = (account.balance || 0) + body.amount;
-      await supabase
+      const { error: updateError } = await supabase
         .from('accounts')
         .update({ balance: newBalance })
         .eq('id', body.account_id);
+      
+      if (updateError) {
+        console.error('Error updating account balance:', updateError);
+      }
     }
 
     // Insert splits if provided

@@ -27,6 +27,7 @@ export default function InsightsPage() {
   useEffect(() => {
     checkAuth();
     fetchInsights();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
   async function checkAuth() {
