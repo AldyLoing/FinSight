@@ -19,22 +19,35 @@ export async function GET(req: NextRequest) {
 
     if (error) throw error;
 
-    if (withStatus && budgets) {
+    // Calculate spent for each budget
+    if (budgets) {
       const { data: transactions } = await supabase
         .from('transactions')
         .select('*')
         .eq('user_id', user.id);
 
-      const { data: splits } = await supabase
-        .from('transaction_splits')
-        .select('*')
-        .eq('user_id', user.id);
+      const budgetsWithSpent = budgets.map((budget) => {
+        const startDate = new Date(budget.start_date);
+        const endDate = budget.end_date ? new Date(budget.end_date) : new Date();
+        
+        // Calculate spent amount for this budget based on category match and budget_id link
+        const spent = (transactions || [])
+          .filter(tx => {
+            const txDate = new Date(tx.occurred_at || tx.date);
+            const isInPeriod = txDate >= startDate && txDate <= endDate;
+            const isExpense = (tx.amount || 0) < 0;
+            const matchesBudget = tx.budget_id === budget.id;
+            return isInPeriod && isExpense && matchesBudget;
+          })
+          .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
 
-      const budgetsWithStatus = budgets.map((budget) =>
-        calculateBudgetStatus(budget, transactions || [], splits || [])
-      );
+        return {
+          ...budget,
+          spent,
+        };
+      });
 
-      return NextResponse.json({ budgets: budgetsWithStatus }, { status: 200 });
+      return NextResponse.json({ budgets: budgetsWithSpent }, { status: 200 });
     }
 
     return NextResponse.json({ budgets }, { status: 200 });

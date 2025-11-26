@@ -10,6 +10,7 @@ export interface Budget {
   total_amount: number;
   currency?: string;
   alert_threshold?: number;
+  spent?: number; // Added for spent tracking
   created_at?: string;
   updated_at?: string;
 }

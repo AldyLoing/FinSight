@@ -61,7 +61,7 @@ export default function BudgetsPage() {
 
   async function fetchBudgets() {
     try {
-      const res = await fetch('/api/budgets');
+      const res = await fetch('/api/budgets?status=true');
       if (res.ok) {
         const data = await res.json();
         setBudgets(data.budgets || []);
@@ -114,6 +114,7 @@ export default function BudgetsPage() {
     const payload = {
       name: formData.category,
       total_amount: amountValue,
+      currency: formData.currency,
       period: formData.period as 'monthly' | 'yearly' | 'weekly' | 'custom',
       start_date: formData.start_date,
       end_date: formData.end_date || undefined,

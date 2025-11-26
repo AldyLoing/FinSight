@@ -63,7 +63,7 @@ export default function DashboardPage() {
       const [accountsRes, transactionsRes, budgetsRes, goalsRes, insightsRes] = await Promise.all([
         fetch('/api/accounts'),
         fetch('/api/transactions?limit=5'),
-        fetch('/api/budgets'),
+        fetch('/api/budgets?status=true'),
         fetch('/api/goals'),
         fetch('/api/insights?acknowledged=false')
       ]);
@@ -243,24 +243,29 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {transactions.slice(0, 5).map((tx: any) => (
-                  <div key={tx.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
-                        tx.type === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
-                      }`}>
-                        {tx.type === 'income' ? '↓' : '↑'}
+                {transactions.slice(0, 5).map((tx: any) => {
+                  const txCurrency = tx.currency || 'USD';
+                  const convertedAmount = convertCurrency(Math.abs(tx.amount || 0), txCurrency, displayCurrency, exchangeRates);
+                  
+                  return (
+                    <div key={tx.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
+                          tx.type === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                        }`}>
+                          {tx.type === 'income' ? '↓' : '↑'}
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">{tx.description}</p>
+                          <p className="text-sm text-gray-500">{new Date(tx.date).toLocaleDateString()}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{tx.description}</p>
-                        <p className="text-sm text-gray-500">{new Date(tx.date).toLocaleDateString()}</p>
+                      <div className={`font-semibold ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                        {tx.type === 'income' ? '+' : '-'}{formatCurrency(convertedAmount, displayCurrency)}
                       </div>
                     </div>
-                    <div className={`font-semibold ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                      {tx.type === 'income' ? '+' : '-'}${Math.abs(tx.amount).toFixed(2)}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </Card>
@@ -321,6 +326,9 @@ export default function DashboardPage() {
                 {budgets.slice(0, 4).map((budget: any) => {
                   const spent = budget.spent || 0;
                   const total = budget.total_amount || budget.amount || 0;
+                  const budgetCurrency = budget.currency || 'USD';
+                  const convertedSpent = convertCurrency(spent, budgetCurrency, displayCurrency, exchangeRates);
+                  const convertedTotal = convertCurrency(total, budgetCurrency, displayCurrency, exchangeRates);
                   const percentage = total > 0 ? (spent / total) * 100 : 0;
                   return (
                     <div key={budget.id} className="p-4 bg-gray-50 rounded-lg">
@@ -339,7 +347,7 @@ export default function DashboardPage() {
                         />
                       </div>
                       <p className="text-sm text-gray-600">
-                        ${spent.toFixed(2)} of ${total.toFixed(2)}
+                        {formatCurrency(convertedSpent, displayCurrency)} of {formatCurrency(convertedTotal, displayCurrency)}
                       </p>
                     </div>
                   );
