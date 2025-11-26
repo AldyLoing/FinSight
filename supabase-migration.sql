@@ -65,6 +65,25 @@ BEGIN
   END IF;
 END $$;
 
+-- Add budget_id column if it doesn't exist
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'transactions' AND column_name = 'budget_id'
+  ) THEN
+    ALTER TABLE transactions 
+    ADD COLUMN budget_id UUID REFERENCES budgets(id) ON DELETE SET NULL;
+    
+    -- Create index for better query performance
+    CREATE INDEX IF NOT EXISTS idx_transactions_budget_id ON transactions(budget_id);
+    
+    RAISE NOTICE '✅ Added budget_id column to transactions table';
+  ELSE
+    RAISE NOTICE '⏭️ Column budget_id already exists in transactions table';
+  END IF;
+END $$;
+
 -- =============================================
 -- ADD MISSING COLUMNS TO BUDGETS TABLE
 -- =============================================

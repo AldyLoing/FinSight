@@ -7,6 +7,7 @@ export interface Transaction {
   description?: string;
   merchant?: string;
   notes?: string;
+  budget_id?: string | null;
   is_transfer?: boolean;
   transfer_account_id?: string | null;
   transfer_transaction_id?: string | null;
