@@ -37,6 +37,7 @@ export interface TransactionInput {
   category?: string;
   merchant?: string;
   notes?: string;
+  budget_id?: string;
   occurred_at?: string;
   is_transfer?: boolean;
   transfer_account_id?: string;

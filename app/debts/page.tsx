@@ -335,7 +335,7 @@ export default function DebtsPage() {
             <Card>
               <div className="text-center py-12 text-gray-500">
                 <p className="mb-4">🎉 No active debts!</p>
-                <p className="text-sm">You're debt-free or haven't added any debts yet.</p>
+                <p className="text-sm">You&apos;re debt-free or haven&apos;t added any debts yet.</p>
               </div>
             </Card>
           ) : (

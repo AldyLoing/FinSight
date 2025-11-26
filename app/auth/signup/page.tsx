@@ -51,7 +51,7 @@ export default function SignUpPage() {
             Check Your Email!
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            We've sent you a confirmation link. Please check your email to verify your account.
+            We&apos;ve sent you a confirmation link. Please check your email to verify your account.
           </p>
           <a
             href="/auth/login"

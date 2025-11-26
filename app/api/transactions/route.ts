@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
           category: body.category,
           merchant: body.merchant,
           notes: body.notes,
+          budget_id: body.budget_id,
           occurred_at: body.occurred_at || new Date().toISOString(),
           is_transfer: body.is_transfer || false,
           transfer_account_id: body.transfer_account_id,
@@ -88,6 +89,21 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    // Update account balance
+    const { data: account } = await supabase
+      .from('accounts')
+      .select('balance')
+      .eq('id', body.account_id)
+      .single();
+
+    if (account) {
+      const newBalance = (account.balance || 0) + body.amount;
+      await supabase
+        .from('accounts')
+        .update({ balance: newBalance })
+        .eq('id', body.account_id);
+    }
 
     // Insert splits if provided
     if (body.splits && body.splits.length > 0) {
