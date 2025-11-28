@@ -120,6 +120,13 @@ export default function DashboardPage() {
 
   const netWorth = totalAssets - totalLiabilities;
 
+  // Calculate transaction net (income - expenses)
+  const transactionNet = transactions.reduce((sum, tx) => {
+    const txCurrency = tx.currency || 'USD';
+    const converted = convertCurrency(Math.abs(tx.amount || 0), txCurrency, displayCurrency, exchangeRates);
+    return sum + (tx.amount >= 0 ? converted : -converted);
+  }, 0);
+
   // Chart data
   const accountsChartData = accounts.map(acc => ({
     name: acc.name,
@@ -185,12 +192,12 @@ export default function DashboardPage() {
           <Card hover>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Total Liabilities</p>
-                <p className="text-2xl font-bold text-red-600">
-                  {formatCurrency(totalLiabilities, displayCurrency)}
+                <p className="text-sm text-gray-600 mb-1">Transaction Net</p>
+                <p className={`text-2xl font-bold ${transactionNet >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {formatCurrency(transactionNet, displayCurrency)}
                 </p>
               </div>
-              <div className="text-4xl">💳</div>
+              <div className="text-4xl">💸</div>
             </div>
           </Card>
 
