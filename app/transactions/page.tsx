@@ -50,6 +50,7 @@ export default function TransactionsPage() {
   
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
+    time: new Date().toTimeString().slice(0, 5), // HH:MM format
     description: '',
     amount: '',
     type: 'expense',
@@ -121,8 +122,10 @@ export default function TransactionsPage() {
     console.log('openModal called', { transaction, accounts });
     if (transaction) {
       setEditingTransaction(transaction);
+      const txDate = transaction.date ? new Date(transaction.date) : new Date();
       setFormData({
         date: transaction.date ? transaction.date.split('T')[0] : new Date().toISOString().split('T')[0],
+        time: txDate.toTimeString().slice(0, 5),
         description: transaction.description || '',
         amount: Math.abs(transaction.amount || 0).toString(),
         type: transaction.type || 'expense',
@@ -136,6 +139,7 @@ export default function TransactionsPage() {
       setEditingTransaction(null);
       setFormData({
         date: new Date().toISOString().split('T')[0],
+        time: new Date().toTimeString().slice(0, 5),
         description: '',
         amount: '',
         type: 'expense',
@@ -167,7 +171,7 @@ export default function TransactionsPage() {
       category: formData.category || null,
       budget_id: formData.budget_id || null,
       notes: formData.notes,
-      occurred_at: new Date(formData.date).toISOString(),
+      occurred_at: new Date(`${formData.date}T${formData.time}:00`).toISOString(),
     };
 
     try {
@@ -421,7 +425,18 @@ export default function TransactionsPage() {
                 {filteredTransactions.map((tx) => (
                   <TableRow key={tx.id}>
                     <TableCell className="text-gray-600">
-                      {tx.date ? new Date(tx.date).toLocaleDateString() : '-'}
+                      {tx.date ? (
+                        <>
+                          <div>{new Date(tx.date).toLocaleDateString()}</div>
+                          <div className="text-xs text-gray-400">
+                            {new Date(tx.date).toLocaleTimeString('en-US', { 
+                              hour: '2-digit', 
+                              minute: '2-digit',
+                              hour12: false 
+                            })}
+                          </div>
+                        </>
+                      ) : '-'}
                     </TableCell>
                     <TableCell>
                       <div className="font-medium text-gray-900">{tx.description || 'No description'}</div>
@@ -499,13 +514,23 @@ export default function TransactionsPage() {
         title={editingTransaction ? 'Edit Transaction' : 'Add New Transaction'}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            label="Date"
-            type="date"
-            value={formData.date}
-            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-            required
-          />
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Date"
+              type="date"
+              value={formData.date}
+              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              required
+            />
+            
+            <Input
+              label="Time"
+              type="time"
+              value={formData.time}
+              onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+              required
+            />
+          </div>
 
           <Input
             label="Description"
