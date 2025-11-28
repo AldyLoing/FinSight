@@ -90,26 +90,8 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error;
 
-    // Update account balance
-    const { data: account, error: accountError } = await supabase
-      .from('accounts')
-      .select('balance')
-      .eq('id', body.account_id)
-      .single();
-
-    if (accountError) {
-      console.error('Error fetching account:', accountError);
-    } else if (account) {
-      const newBalance = (account.balance || 0) + body.amount;
-      const { error: updateError } = await supabase
-        .from('accounts')
-        .update({ balance: newBalance })
-        .eq('id', body.account_id);
-      
-      if (updateError) {
-        console.error('Error updating account balance:', updateError);
-      }
-    }
+    // Note: Account balance is automatically updated by database trigger
+    // No manual balance update needed here
 
     // Insert splits if provided
     if (body.splits && body.splits.length > 0) {

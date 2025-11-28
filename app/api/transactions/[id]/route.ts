@@ -78,41 +78,8 @@ export async function PUT(
 
     if (error) throw error;
 
-    // Update account balance if amount or account changed
-    if (oldTransaction && (body.amount !== undefined || body.account_id !== undefined)) {
-      // Reverse old transaction effect
-      if (oldTransaction.account_id) {
-        const { data: oldAccount } = await supabase
-          .from('accounts')
-          .select('balance')
-          .eq('id', oldTransaction.account_id)
-          .single();
-        
-        if (oldAccount) {
-          await supabase
-            .from('accounts')
-            .update({ balance: (oldAccount.balance || 0) - oldTransaction.amount })
-            .eq('id', oldTransaction.account_id);
-        }
-      }
-
-      // Apply new transaction effect
-      const newAccountId = body.account_id || oldTransaction.account_id;
-      const newAmount = body.amount ?? oldTransaction.amount;
-      
-      const { data: newAccount } = await supabase
-        .from('accounts')
-        .select('balance')
-        .eq('id', newAccountId)
-        .single();
-      
-      if (newAccount) {
-        await supabase
-          .from('accounts')
-          .update({ balance: (newAccount.balance || 0) + newAmount })
-          .eq('id', newAccountId);
-      }
-    }
+    // Note: Account balance is automatically updated by database trigger
+    // No manual balance update needed here
 
     return NextResponse.json({ transaction }, { status: 200 });
   } catch (error: any) {
@@ -145,21 +112,8 @@ export async function DELETE(
 
     if (error) throw error;
 
-    // Reverse transaction effect on account balance
-    if (transaction && transaction.account_id) {
-      const { data: account } = await supabase
-        .from('accounts')
-        .select('balance')
-        .eq('id', transaction.account_id)
-        .single();
-      
-      if (account) {
-        await supabase
-          .from('accounts')
-          .update({ balance: (account.balance || 0) - transaction.amount })
-          .eq('id', transaction.account_id);
-      }
-    }
+    // Note: Account balance is automatically updated by database trigger
+    // No manual balance update needed here
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error: any) {
