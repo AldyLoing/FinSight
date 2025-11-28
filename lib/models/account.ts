@@ -1,8 +1,10 @@
+export type AccountType = 'cash' | 'bank' | 'credit' | 'ewallet' | 'loan' | 'investment' | 'other';
+
 export interface Account {
   id: string;
   user_id: string;
   name: string;
-  type: 'cash' | 'bank' | 'credit' | 'ewallet' | 'loan' | 'investment' | 'other';
+  type: AccountType;
   currency: string;
   balance: number;
   initial_balance: number;
@@ -30,7 +32,7 @@ export interface AccountInput {
 
 export interface AccountUpdate {
   name?: string;
-  type?: Account['type'];
+  type?: AccountType;
   currency?: string;
   balance?: number;
   initial_balance?: number;
