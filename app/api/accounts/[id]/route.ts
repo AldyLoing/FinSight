@@ -44,6 +44,9 @@ export async function PUT(
     // Add optional fields if provided
     if (body.balance !== undefined) {
       updateData.balance = body.balance;
+      // IMPORTANT: When manually editing balance, also update initial_balance
+      // This makes the new balance the "starting point" for future transactions
+      updateData.initial_balance = body.balance;
     }
     if (body.initial_balance !== undefined) {
       updateData.initial_balance = body.initial_balance;
