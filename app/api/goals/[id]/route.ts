@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, getAuthUser } from '@/lib/db-server';
-import { GoalUpdate } from '@/lib/models/goal';
+import { handleApiError, parseBody } from '@/lib/api';
+import { goalUpdateSchema } from '@/lib/validation';
 
 export async function GET(
   req: NextRequest,
@@ -20,8 +21,8 @@ export async function GET(
     if (error) throw error;
 
     return NextResponse.json({ goal }, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 404 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }
 
@@ -32,7 +33,7 @@ export async function PUT(
   try {
     const supabase = createServerClient();
     const user = await getAuthUser(supabase);
-    const body: GoalUpdate = await req.json();
+    const body = await parseBody(req, goalUpdateSchema);
 
     const { data: goal, error } = await supabase
       .from('goals')
@@ -45,8 +46,8 @@ export async function PUT(
     if (error) throw error;
 
     return NextResponse.json({ goal }, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }
 
@@ -67,7 +68,7 @@ export async function DELETE(
     if (error) throw error;
 
     return NextResponse.json({ success: true }, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }

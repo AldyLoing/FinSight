@@ -1,17 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, getAuthUser } from '@/lib/db-server';
-import { TransactionInput, TransactionUpdate } from '@/lib/models/transaction';
+import { handleApiError, parseBody, parseQuery } from '@/lib/api';
+import { transactionInputSchema, transactionQuerySchema } from '@/lib/validation';
 
 export async function GET(req: NextRequest) {
   try {
     const supabase = createServerClient();
     const user = await getAuthUser(supabase);
 
-    const { searchParams } = new URL(req.url);
-    const accountId = searchParams.get('account_id');
-    const from = searchParams.get('from');
-    const to = searchParams.get('to');
-    const limit = parseInt(searchParams.get('limit') || '100');
+    const { account_id: accountId, from, to, limit } = parseQuery(req, transactionQuerySchema);
 
     let query = supabase
       .from('transactions')
@@ -54,8 +51,8 @@ export async function GET(req: NextRequest) {
     }));
 
     return NextResponse.json({ transactions }, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }
 
@@ -63,7 +60,7 @@ export async function POST(req: NextRequest) {
   try {
     const supabase = createServerClient();
     const user = await getAuthUser(supabase);
-    const body: TransactionInput = await req.json();
+    const body = await parseBody(req, transactionInputSchema);
 
     // Insert transaction
     const { data: transaction, error } = await supabase
@@ -111,7 +108,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ transaction }, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }

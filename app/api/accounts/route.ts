@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, getAuthUser } from '@/lib/db-server';
-import { AccountInput, AccountUpdate } from '@/lib/models/account';
+import { handleApiError, parseBody } from '@/lib/api';
+import { accountInputSchema } from '@/lib/validation';
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,8 +17,8 @@ export async function GET(req: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json({ accounts }, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }
 
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
   try {
     const supabase = createServerClient();
     const user = await getAuthUser(supabase);
-    const body: AccountInput = await req.json();
+    const body = await parseBody(req, accountInputSchema);
 
     const { data: account, error } = await supabase
       .from('accounts')
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json({ account }, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }

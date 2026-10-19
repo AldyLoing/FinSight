@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, getAuthUser } from '@/lib/db-server';
+import { handleApiError } from '@/lib/api';
+import { enforceRateLimit } from '@/lib/rate-limit';
 import { runLocalInsights } from '@/lib/finance/insights';
 import { getAIInsights } from '@/lib/finance/ai';
 
@@ -26,8 +28,8 @@ export async function GET(req: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json({ insights }, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }
 
@@ -38,6 +40,10 @@ export async function POST(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const useAI = searchParams.get('ai') === 'true';
+
+    if (useAI) {
+      enforceRateLimit(`ai:${user.id}`, 5, 60 * 60 * 1000);
+    }
 
     // Fetch user's financial data
     const { data: transactions } = await supabase
@@ -98,7 +104,7 @@ export async function POST(req: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }

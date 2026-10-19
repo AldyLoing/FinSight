@@ -26,6 +26,13 @@ yarn-error.log*
 .env*.local
 .env
 
+# Personal financial data (receipts, manifests, import scripts, seed)
+app/pengeluaran/
+app/pemasukan/
+scripts/import-transaksi.mjs
+scripts/import-transaksi.sql
+seed-finsight-data.sql
+
 # Vercel
 .vercel
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, getAuthUser } from '@/lib/db-server';
-import { TransactionUpdate } from '@/lib/models/transaction';
+import { handleApiError, parseBody } from '@/lib/api';
+import { transactionUpdateSchema } from '@/lib/validation';
 
 export async function GET(
   req: NextRequest,
@@ -20,8 +21,8 @@ export async function GET(
     if (error) throw error;
 
     return NextResponse.json({ transaction }, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 404 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }
 
@@ -32,7 +33,7 @@ export async function PATCH(
   try {
     const supabase = createServerClient();
     const user = await getAuthUser(supabase);
-    const body: TransactionUpdate = await req.json();
+    const body = await parseBody(req, transactionUpdateSchema);
 
     const { data: transaction, error } = await supabase
       .from('transactions')
@@ -45,8 +46,8 @@ export async function PATCH(
     if (error) throw error;
 
     return NextResponse.json({ transaction }, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }
 
@@ -57,7 +58,7 @@ export async function PUT(
   try {
     const supabase = createServerClient();
     const user = await getAuthUser(supabase);
-    const body: TransactionUpdate = await req.json();
+    const body = await parseBody(req, transactionUpdateSchema);
 
     // Get old transaction to reverse its effect on account balance
     const { data: oldTransaction } = await supabase
@@ -82,8 +83,8 @@ export async function PUT(
     // No manual balance update needed here
 
     return NextResponse.json({ transaction }, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }
 
@@ -116,7 +117,7 @@ export async function DELETE(
     // No manual balance update needed here
 
     return NextResponse.json({ success: true }, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }

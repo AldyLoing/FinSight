@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, getAuthUser } from '@/lib/db-server';
+import { handleApiError } from '@/lib/api';
 
 export async function PATCH(
   req: NextRequest,
@@ -23,8 +24,8 @@ export async function PATCH(
     if (error) throw error;
 
     return NextResponse.json({ insight }, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }
 
@@ -45,7 +46,7 @@ export async function DELETE(
     if (error) throw error;
 
     return NextResponse.json({ success: true }, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }

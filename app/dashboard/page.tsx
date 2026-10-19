@@ -27,12 +27,26 @@ interface Insight {
   severity: string;
 }
 
+interface Debt {
+  id: string;
+  name: string;
+  type: string;
+  description?: string;
+  currency?: string;
+  principal: number;
+  current_balance: number;
+  minimum_payment: number;
+  due_day?: number;
+  status: string;
+}
+
 export default function DashboardPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [insights, setInsights] = useState<Insight[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [budgets, setBudgets] = useState<any[]>([]);
   const [goals, setGoals] = useState<any[]>([]);
+  const [debts, setDebts] = useState<Debt[]>([]);
   const [loading, setLoading] = useState(true);
   const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({});
   const [displayCurrency, setDisplayCurrency] = useState<string>('IDR');
@@ -60,12 +74,13 @@ export default function DashboardPage() {
       }
 
       // Fetch all data in parallel
-      const [accountsRes, transactionsRes, budgetsRes, goalsRes, insightsRes] = await Promise.all([
+      const [accountsRes, transactionsRes, budgetsRes, goalsRes, insightsRes, debtsRes] = await Promise.all([
         fetch('/api/accounts'),
         fetch('/api/transactions?limit=5'),
         fetch('/api/budgets?status=true'),
         fetch('/api/goals'),
-        fetch('/api/insights?acknowledged=false')
+        fetch('/api/insights?acknowledged=false'),
+        fetch('/api/debts')
       ]);
 
       if (accountsRes.ok) {
@@ -91,6 +106,11 @@ export default function DashboardPage() {
       if (insightsRes.ok) {
         const data = await insightsRes.json();
         setInsights(data.insights || []);
+      }
+
+      if (debtsRes.ok) {
+        const data = await debtsRes.json();
+        setDebts(data.debts || []);
       }
     } catch (error) {
       console.error('Error loading dashboard:', error);
@@ -118,7 +138,71 @@ export default function DashboardPage() {
       return sum + converted;
     }, 0);
 
-  const netWorth = totalAssets - totalLiabilities;
+  const activeDebts = debts.filter(d => d.status === 'active');
+
+  const totalDebt = activeDebts.reduce(
+    (sum, d) =>
+      sum + convertCurrency(d.current_balance, d.currency || 'USD', displayCurrency, exchangeRates),
+    0
+  );
+
+  const netWorth = totalAssets - totalLiabilities - totalDebt;
+
+  function startOfToday(): Date {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+
+  function nextDueDate(dueDay: number): Date {
+    const today = startOfToday();
+    let d = new Date(today.getFullYear(), today.getMonth(), dueDay);
+    if (d < today) {
+      d = new Date(today.getFullYear(), today.getMonth() + 1, dueDay);
+    }
+    return d;
+  }
+
+  const upcomingPayments = activeDebts
+    .filter(d => d.due_day != null)
+    .map(d => {
+      const date = nextDueDate(d.due_day as number);
+      const daysLeft = Math.round((date.getTime() - startOfToday().getTime()) / 86400000);
+      return { debt: d, date, daysLeft };
+    })
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  function formatDateShort(d: Date): string {
+    return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  function daysUntil(date: Date): number {
+    return Math.max(Math.ceil((date.getTime() - startOfToday().getTime()) / 86400000), 1);
+  }
+
+  const debtPayoffs = activeDebts.map((debt) => {
+    const srcCurrency = debt.currency || 'USD';
+    const balance = convertCurrency(debt.current_balance, srcCurrency, displayCurrency, exchangeRates);
+    const minPayment = convertCurrency(debt.minimum_payment, srcCurrency, displayCurrency, exchangeRates);
+    const nextPayment = Math.min(balance, minPayment);
+    if (debt.due_day == null) {
+      return { debt, nextPayment, perDay: null as number | null, nextDate: null as Date | null };
+    }
+    const nextDate = nextDueDate(debt.due_day);
+    const days = daysUntil(nextDate);
+    return { debt, nextPayment, perDay: Math.ceil(nextPayment / days), nextDate };
+  });
+
+  const sumNextPayments = debtPayoffs.reduce((sum, p) => sum + p.nextPayment, 0);
+
+  const nearestPayoffDate = debtPayoffs.reduce<Date | null>(
+    (acc, p) => (p.nextDate && (!acc || p.nextDate < acc) ? p.nextDate : acc),
+    null
+  );
+
+  const nearestDays = nearestPayoffDate ? daysUntil(nearestPayoffDate) : 0;
+  const netDailyNeeded = nearestDays > 0
+    ? Math.max(Math.ceil((sumNextPayments - totalAssets) / nearestDays), 0)
+    : 0;
 
   // Calculate transaction net (income - expenses)
   const transactionNet = transactions.reduce((sum, tx) => {
@@ -192,6 +276,18 @@ export default function DashboardPage() {
           <Card hover>
             <div className="flex items-center justify-between">
               <div>
+                <p className="text-sm text-gray-600 mb-1">Total Debt</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {formatCurrency(totalDebt, displayCurrency)}
+                </p>
+              </div>
+              <div className="text-4xl">💳</div>
+            </div>
+          </Card>
+
+          <Card hover>
+            <div className="flex items-center justify-between">
+              <div>
                 <p className="text-sm text-gray-600 mb-1">Transaction Net</p>
                 <p className={`text-2xl font-bold ${transactionNet >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {formatCurrency(transactionNet, displayCurrency)}
@@ -200,19 +296,111 @@ export default function DashboardPage() {
               <div className="text-4xl">💸</div>
             </div>
           </Card>
-
-          <Card hover>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Active Goals</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  {goals.filter(g => g.status === 'active').length}
-                </p>
-              </div>
-              <div className="text-4xl">🎯</div>
-            </div>
-          </Card>
         </div>
+
+        {/* Debts Section */}
+        {activeDebts.length > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Active Debts */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Active Debts</CardTitle>
+                  <Link href="/debts">
+                    <Button variant="outline" size="sm">View All</Button>
+                  </Link>
+                </div>
+              </CardHeader>
+              <div className="space-y-3">
+                {debtPayoffs.map(({ debt, perDay, nextDate }) => {
+                  const srcCurrency = debt.currency || 'USD';
+                  const balance = convertCurrency(debt.current_balance, srcCurrency, displayCurrency, exchangeRates);
+                  const minPayment = convertCurrency(debt.minimum_payment, srcCurrency, displayCurrency, exchangeRates);
+                  const percentage = debt.principal > 0
+                    ? ((debt.principal - debt.current_balance) / debt.principal) * 100
+                    : 0;
+                  return (
+                    <div key={debt.id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="font-medium text-gray-900">{debt.name}</p>
+                        <p className="font-semibold text-red-600">{formatCurrency(balance, displayCurrency)}</p>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                        <span>
+                          Cicilan {formatCurrency(minPayment, displayCurrency)}/bln
+                          {debt.due_day != null && ` · tgl ${debt.due_day}`}
+                        </span>
+                        <span>{percentage.toFixed(0)}% lunas</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-1.5">
+                        <div
+                          className="h-1.5 rounded-full bg-blue-600 transition-all"
+                          style={{ width: `${Math.min(Math.max(percentage, 0), 100)}%` }}
+                        />
+                      </div>
+                      {perDay != null && nextDate && (
+                        <p className="text-xs text-blue-600 mt-1">
+                          ≈ {formatCurrency(perDay, displayCurrency)}/hari · siap tgl {formatDateShort(nextDate)}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+                <div className="pt-3 border-t border-gray-200 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-gray-900">Total</span>
+                    <span className="font-semibold text-red-600">{formatCurrency(totalDebt, displayCurrency)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">
+                      Setelah kas ({formatCurrency(totalAssets, displayCurrency)})
+                    </span>
+                    <span className="text-sm font-semibold text-blue-600">
+                      {totalAssets >= sumNextPayments
+                        ? 'tertutup kas'
+                        : `≈ ${formatCurrency(netDailyNeeded, displayCurrency)}/hari${
+                            nearestPayoffDate ? ` · tagihan terdekat ${formatDateShort(nearestPayoffDate)}` : ''
+                          }`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Upcoming Payments */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Upcoming Payments</CardTitle>
+              </CardHeader>
+              <div className="space-y-3">
+                {upcomingPayments.map(({ debt, date, daysLeft }) => {
+                  const srcCurrency = debt.currency || 'USD';
+                  const amountDue = convertCurrency(debt.minimum_payment, srcCurrency, displayCurrency, exchangeRates);
+                  return (
+                    <div key={debt.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div>
+                        <p className="font-medium text-gray-900">{debt.name}</p>
+                        <p className="text-sm text-gray-500">
+                          {formatDateShort(date)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-gray-900">{formatCurrency(amountDue, displayCurrency)}</p>
+                        <Badge
+                          variant={daysLeft <= 7 ? 'danger' : daysLeft <= 14 ? 'warning' : 'info'}
+                          size="sm"
+                          className="mt-1"
+                        >
+                          {daysLeft === 0 ? 'today' : `in ${daysLeft} days`}
+                        </Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          </div>
+        )}
 
         {/* Charts & Activity Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">

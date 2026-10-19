@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, getAuthUser } from '@/lib/db-server';
-import { DebtInput } from '@/lib/models/debt';
+import { handleApiError, parseBody, parseQuery } from '@/lib/api';
+import { debtInputSchema, debtQuerySchema } from '@/lib/validation';
 import { compareStrategies } from '@/lib/finance/debts';
 
 export async function GET(req: NextRequest) {
@@ -8,9 +9,9 @@ export async function GET(req: NextRequest) {
     const supabase = createServerClient();
     const user = await getAuthUser(supabase);
 
-    const { searchParams } = new URL(req.url);
-    const withStrategy = searchParams.get('strategy') === 'true';
-    const extraPayment = parseFloat(searchParams.get('extra_payment') || '0');
+    const query = parseQuery(req, debtQuerySchema);
+    const withStrategy = query.strategy === 'true';
+    const extraPayment = query.extra_payment;
 
     const { data: debts, error } = await supabase
       .from('debts')
@@ -27,8 +28,8 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ debts }, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }
 
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
   try {
     const supabase = createServerClient();
     const user = await getAuthUser(supabase);
-    const body: DebtInput = await req.json();
+    const body = await parseBody(req, debtInputSchema);
 
     const { data: debt, error } = await supabase
       .from('debts')
@@ -44,7 +45,9 @@ export async function POST(req: NextRequest) {
         {
           user_id: user.id,
           name: body.name,
+          type: body.type || 'other',
           description: body.description,
+          currency: (body.currency || 'USD').toUpperCase(),
           principal: body.principal,
           current_balance: body.current_balance || body.principal,
           interest_rate: body.interest_rate,
@@ -60,7 +63,7 @@ export async function POST(req: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json({ debt }, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }

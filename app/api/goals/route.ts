@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, getAuthUser } from '@/lib/db-server';
-import { GoalInput } from '@/lib/models/goal';
+import { handleApiError, parseBody } from '@/lib/api';
+import { goalInputSchema } from '@/lib/validation';
 import { simulateGoalProgress } from '@/lib/finance/goals';
 
 export async function GET(req: NextRequest) {
@@ -29,8 +30,8 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ goals }, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }
 
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
   try {
     const supabase = createServerClient();
     const user = await getAuthUser(supabase);
-    const body: GoalInput = await req.json();
+    const body = await parseBody(req, goalInputSchema);
 
     const { data: goal, error } = await supabase
       .from('goals')
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json({ goal }, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }

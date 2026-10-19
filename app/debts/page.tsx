@@ -14,13 +14,13 @@ interface Debt {
   id: string;
   name: string;
   type: string;
-  principal_amount: number;
+  description?: string;
+  currency?: string;
+  principal: number;
   current_balance: number;
   interest_rate: number;
   minimum_payment: number;
-  due_date?: string;
-  creditor?: string;
-  notes?: string;
+  due_day?: number;
   status: string;
 }
 
@@ -33,16 +33,17 @@ export default function DebtsPage() {
   const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({});
-  const [displayCurrency, setDisplayCurrency] = useState('USD');
-  
+  const [displayCurrency, setDisplayCurrency] = useState('IDR');
+
   const [formData, setFormData] = useState({
     name: '',
     type: 'credit_card',
+    currency: 'IDR',
     principal_amount: '',
     current_balance: '',
     interest_rate: '',
     minimum_payment: '',
-    due_date: '',
+    due_day: '',
     creditor: '',
     notes: '',
   });
@@ -86,24 +87,26 @@ export default function DebtsPage() {
       setFormData({
         name: debt.name || '',
         type: debt.type || 'credit_card',
-        principal_amount: debt.principal_amount?.toString() || '0',
+        currency: debt.currency || 'IDR',
+        principal_amount: debt.principal?.toString() || '0',
         current_balance: debt.current_balance?.toString() || '0',
         interest_rate: debt.interest_rate?.toString() || '0',
         minimum_payment: debt.minimum_payment?.toString() || '0',
-        due_date: debt.due_date ? debt.due_date.split('T')[0] : '',
-        creditor: debt.creditor || '',
-        notes: debt.notes || '',
+        due_day: debt.due_day?.toString() || '',
+        creditor: '',
+        notes: debt.description || '',
       });
     } else {
       setEditingDebt(null);
       setFormData({
         name: '',
         type: 'credit_card',
+        currency: 'IDR',
         principal_amount: '',
         current_balance: '',
         interest_rate: '',
         minimum_payment: '',
-        due_date: '',
+        due_day: '',
         creditor: '',
         notes: '',
       });
@@ -135,15 +138,23 @@ export default function DebtsPage() {
       return;
     }
 
+    const dueDayValue = formData.due_day ? parseInt(formData.due_day, 10) : undefined;
+    if (dueDayValue !== undefined && (isNaN(dueDayValue) || dueDayValue < 1 || dueDayValue > 31)) {
+      alert('Due day must be between 1 and 31');
+      return;
+    }
+
     const payload = {
       name: formData.name,
-      description: `${formData.type} - ${formData.creditor || 'No creditor'}`,
+      type: formData.type,
+      description: [formData.creditor, formData.notes].filter(Boolean).join(' - ') || undefined,
+      currency: formData.currency,
       principal: principalValue,
       current_balance: balanceValue,
       interest_rate: rateValue,
       interest_type: 'simple' as const,
       minimum_payment: paymentValue,
-      due_day: formData.due_date ? new Date(formData.due_date).getDate() : undefined,
+      due_day: dueDayValue,
     };
 
     try {
@@ -237,13 +248,12 @@ export default function DebtsPage() {
   const activeDebts = debts.filter(d => d.status === 'active');
   const paidOffDebts = debts.filter(d => d.status === 'paid_off');
   
-  const totalDebt = convertCurrency(
-    activeDebts.reduce((sum, d) => sum + d.current_balance, 0),
-    'USD',
-    displayCurrency,
-    exchangeRates
+  const totalDebt = activeDebts.reduce(
+    (sum, d) =>
+      sum + convertCurrency(d.current_balance, d.currency || 'USD', displayCurrency, exchangeRates),
+    0
   );
-  const totalPrincipal = activeDebts.reduce((sum, d) => sum + d.principal_amount, 0);
+  const totalPrincipal = activeDebts.reduce((sum, d) => sum + d.principal, 0);
   const avgInterestRate = activeDebts.length > 0 
     ? activeDebts.reduce((sum, d) => sum + d.interest_rate, 0) / activeDebts.length 
     : 0;
@@ -341,10 +351,13 @@ export default function DebtsPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {activeDebts.map((debt) => {
-                const convertedBalance = convertCurrency(debt.current_balance, 'USD', displayCurrency, exchangeRates);
-                const convertedPrincipal = convertCurrency(debt.principal_amount, 'USD', displayCurrency, exchangeRates);
-                const convertedMinPayment = convertCurrency(debt.minimum_payment, 'USD', displayCurrency, exchangeRates);
-                const percentage = ((debt.principal_amount - debt.current_balance) / debt.principal_amount) * 100;
+                const srcCurrency = debt.currency || 'USD';
+                const convertedBalance = convertCurrency(debt.current_balance, srcCurrency, displayCurrency, exchangeRates);
+                const convertedPrincipal = convertCurrency(debt.principal, srcCurrency, displayCurrency, exchangeRates);
+                const convertedMinPayment = convertCurrency(debt.minimum_payment, srcCurrency, displayCurrency, exchangeRates);
+                const percentage = debt.principal > 0
+                  ? ((debt.principal - debt.current_balance) / debt.principal) * 100
+                  : 0;
                 const monthsToPayOff = debt.minimum_payment > 0 
                   ? Math.ceil(debt.current_balance / debt.minimum_payment)
                   : 0;
@@ -355,12 +368,12 @@ export default function DebtsPage() {
                       <div className="flex items-start justify-between mb-2">
                         <div>
                           <h3 className="text-lg font-semibold text-gray-900">{debt.name}</h3>
-                          <Badge variant="danger" size="sm" className="mt-1">{debt.type.replace('_', ' ')}</Badge>
+                          <Badge variant="danger" size="sm" className="mt-1">{(debt.type || 'debt').replace('_', ' ')}</Badge>
                         </div>
                         <Badge variant="warning">{debt.interest_rate}% APR</Badge>
                       </div>
-                      {debt.creditor && (
-                        <p className="text-sm text-gray-600">{debt.creditor}</p>
+                      {debt.description && (
+                        <p className="text-sm text-gray-600">{debt.description}</p>
                       )}
                     </div>
 
@@ -392,10 +405,10 @@ export default function DebtsPage() {
                           <span className="text-gray-600">Minimum Payment</span>
                           <span className="font-semibold">{formatCurrency(convertedMinPayment, displayCurrency)}</span>
                         </div>
-                        {debt.due_date && (
+                        {debt.due_day && (
                           <div className="flex justify-between text-sm">
                             <span className="text-gray-600">Next Due</span>
-                            <span className="font-semibold">{new Date(debt.due_date).toLocaleDateString()}</span>
+                            <span className="font-semibold">Setiap tgl {debt.due_day}</span>
                           </div>
                         )}
                         {monthsToPayOff > 0 && (
@@ -405,12 +418,6 @@ export default function DebtsPage() {
                         )}
                       </div>
                     </div>
-
-                    {debt.notes && (
-                      <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                        <p className="text-sm text-gray-600">{debt.notes}</p>
-                      </div>
-                    )}
 
                     <div className="grid grid-cols-2 gap-2">
                       <Button
@@ -449,7 +456,7 @@ export default function DebtsPage() {
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Paid Off Debts</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {paidOffDebts.map((debt) => {
-                const convertedPrincipal = convertCurrency(debt.principal_amount ?? 0, 'USD', displayCurrency, exchangeRates);
+                const convertedPrincipal = convertCurrency(debt.principal ?? 0, debt.currency || 'USD', displayCurrency, exchangeRates);
                 return (
                   <Card key={debt.id} className="opacity-75">
                     <div className="flex items-center justify-between mb-4">
@@ -500,6 +507,14 @@ export default function DebtsPage() {
             required
           />
 
+          <Select
+            label="Currency"
+            value={formData.currency}
+            onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+            options={SUPPORTED_CURRENCIES.map(c => ({ value: c.code, label: `${c.symbol} ${c.code}` }))}
+            required
+          />
+
           <Input
             label="Original Principal Amount"
             type="number"
@@ -541,10 +556,13 @@ export default function DebtsPage() {
           />
 
           <Input
-            label="Next Due Date (Optional)"
-            type="date"
-            value={formData.due_date}
-            onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+            label="Due Day of Month (1-31, optional)"
+            type="number"
+            min={1}
+            max={31}
+            value={formData.due_day}
+            onChange={(e) => setFormData({ ...formData, due_day: e.target.value })}
+            placeholder="e.g., 27"
           />
 
           <Input
@@ -595,13 +613,13 @@ export default function DebtsPage() {
             <p className="text-sm text-gray-600 mb-1">Current Balance</p>
             <p className="text-2xl font-bold text-red-600">
               {formatCurrency(
-                convertCurrency(selectedDebt?.current_balance ?? 0, 'USD', displayCurrency, exchangeRates),
+                convertCurrency(selectedDebt?.current_balance ?? 0, selectedDebt?.currency || 'USD', displayCurrency, exchangeRates),
                 displayCurrency
               )}
             </p>
             <p className="text-xs text-gray-600 mt-2">
               Minimum Payment: {formatCurrency(
-                convertCurrency(selectedDebt?.minimum_payment ?? 0, 'USD', displayCurrency, exchangeRates),
+                convertCurrency(selectedDebt?.minimum_payment ?? 0, selectedDebt?.currency || 'USD', displayCurrency, exchangeRates),
                 displayCurrency
               )}
             </p>

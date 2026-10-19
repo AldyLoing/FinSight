@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, getAuthUser } from '@/lib/db-server';
+import { handleApiError, parseBody } from '@/lib/api';
+import { forecastInputSchema } from '@/lib/validation';
 import { forecastCashflow } from '@/lib/finance/forecast';
 
 export async function GET(req: NextRequest) {
@@ -17,8 +19,8 @@ export async function GET(req: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json({ forecasts }, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }
 
@@ -27,8 +29,8 @@ export async function POST(req: NextRequest) {
     const supabase = createServerClient();
     const user = await getAuthUser(supabase);
 
-    const body = await req.json();
-    const horizonDays = body.horizon_days || 90;
+    const body = await parseBody(req, forecastInputSchema);
+    const horizonDays = body.horizon_days ?? body.days ?? 90;
 
     // Fetch transactions and accounts
     const { data: transactions } = await supabase
@@ -66,7 +68,7 @@ export async function POST(req: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json({ forecast: savedForecast }, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }

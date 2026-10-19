@@ -1,22 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, getAuthUser } from '@/lib/db-server';
-import { getAIInsights, summarizeForAI } from '@/lib/finance/ai';
+import { getAIInsights } from '@/lib/finance/ai';
+import { handleApiError } from '@/lib/api';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
+// Generates AI insights from the authenticated user's own data only.
+// Free-form prompts are intentionally not accepted, so this endpoint cannot
+// be used as a general-purpose LLM proxy.
 export async function POST(req: NextRequest) {
   try {
     const supabase = createServerClient();
     const user = await getAuthUser(supabase);
 
-    const body = await req.json();
+    enforceRateLimit(`ai:${user.id}`, 5, 60 * 60 * 1000);
 
-    // If custom prompt provided
-    if (body.prompt) {
-      const { callOpenRouter } = await import('@/lib/finance/ai');
-      const response = await callOpenRouter(body.prompt);
-      return NextResponse.json({ response }, { status: 200 });
-    }
-
-    // Otherwise, generate insights from user's data
     const { data: transactions } = await supabase
       .from('transactions')
       .select('*')
@@ -35,7 +32,7 @@ export async function POST(req: NextRequest) {
     const aiResponse = await getAIInsights(transactions || [], insights || []);
 
     return NextResponse.json({ response: aiResponse }, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error);
   }
 }
